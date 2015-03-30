@@ -6,11 +6,8 @@
 /*global FormData*/
 (function (window) {
     var attachmentsArray = [];
-
     return {
-    
         requests: {
-    
             getBearerToken: function (code) {
                 return {
                     url: 'https://api.dropbox.com/1/oauth2/token?code=' + code + '&grant_type=authorization_code&client_id=wlaohmc8nkj7og4&client_secret=as7blmehog1jtdz',
@@ -18,21 +15,10 @@
                     type: 'POST'
                 };
             },
-    
-            uploadFile: function (data, fileName, bearer_token) { // SEND REQUEST TO UPLOAD 1 PDF TO DROPBOX
-
-                var overwrite = this.setting('overwrite');
-
-                if (this.setting('overwrite') === true) {
-                    overwrite = 'true';
-                } else {
-                    overwrite = 'false';
-                }
-
+            uploadFile: function (data, fileName, bearer_token) {
                 var filePath = this.setting('filePath');
-
                 return {
-                  url: 'https://api-content.dropbox.com/1/files_put/auto/' + filePath + '/' + fileName + '?overwrite=' + overwrite, // modify this URL to the correct path per dropbox user - could be different for each one
+                  url: 'https://api-content.dropbox.com/1/files_put/auto/' + filePath + '/' + fileName + '?overwrite=' + this.setting('overwrite') || 'false',
                   accepts: 'text/plain; charset=iso-8859-1',
                   headers: {
                     "Authorization": 'Bearer ' + bearer_token,
@@ -98,9 +84,7 @@
 
         getAttachments: function(complete) {
             this.switchTo('loading');
-
             if (complete === true) {
-
                 var attachmentsArray            = [],
                     ticket                      = this.ticket(),
                     comment                     = this.comment(),
@@ -108,16 +92,16 @@
 
                 // CURRENT comments PDFs - start
                 if (currentCommentAttachments.length > 0) {
-                  for (var i = 0; currentCommentAttachments.length > i; i++) {   
+                  for (var i = 0; currentCommentAttachments.length > i; i++) {
                     if (currentCommentAttachments[i].contentType() === 'application/pdf') {
-                        attachmentsArray.push(currentCommentAttachments[i].contentUrl());
+                        attachmentsArray.push(currentCommentAttachments[i]);
                     }
                   }
                 }
                 // CURRENT comments PDFs - end
 
                 // PREVIOUS comments PDFs - start
-                ticket.comments().forEach(function(comment) { 
+                ticket.comments().forEach(function(comment) {
 
                     // var images = comment.imageAttachments(); // Not using Images yet
                     // if (images.length !== 0) {
@@ -141,7 +125,7 @@
                             var nonImage = comment.nonImageAttachments()[i];
 
                             if (nonImage.contentType() === 'application/pdf') {
-                                attachmentsArray.push(nonImage.contentUrl());
+                                attachmentsArray.push(nonImage);
                             }
 
                         }
@@ -159,7 +143,6 @@
                         PDFcount: attachmentsArray.length
                     });
                 }
-
                 this.attachmentsArray = attachmentsArray;
                 this.attachmentsArraySize = attachmentsArray.length;
             } else {
@@ -168,36 +151,20 @@
         },
 
         lookForBearerToken: function () {
-            // console.log('lookForBearerToken');
-
             this.switchTo('loading');
-
             if (this.store('OAuth Bearer Token') === null) { // Not signed in to Dropbox
                 // console.log('lookForBearerToken IF');
                 services.notify('<span style="font-size: 15px;">Please click <strong>allow</strong> in the popup then <strong>copy the code into the app</strong> to continue</span>', 'alert', 12000);
                 this.switchTo('inputCode');
                 this.createLoginPopup(); // Display OAuth 'allow' popup
-            } else { // Already signed in to Dropbox - send PDFs now
-                // console.log('lookForBearerToken ELSE');
-                var bearer_token                        = this.store('OAuth Bearer Token'),
-                    attachmentsArray                    = this.attachmentsArray,
-                    // firstAttachmentInAttachmentsArray   = attachmentsArray[0],
-                    // url                                 = firstAttachmentInAttachmentsArray,
-                    attachmentsArraySize                = this.attachmentsArraySize;
-
-                services.notify('Sending files to Dropbox, just a moment', 'notice');
-
-                // loop through each item in attachmentsArray and send each *.contentUrl() to this.created as 'url'
-                for (var i = 0; attachmentsArray.length > i; i++) {
-                    var url = attachmentsArray[i];
-                    // console.log(url);
-                    this.created(url, bearer_token, attachmentsArraySize);
-                }
+            } else {
+            // Already signed in to Dropbox - send PDFs now
+                this.iterateFiles();
             }
         },
 
         createLoginPopup: function () {
-            return window.open( 
+            return window.open(
                 // 'redirect_uri' optional according to Dropbox's OAuth 2 documentation
                 'https://www.dropbox.com/1/oauth2/authorize?response_type=code&client_id=wlaohmc8nkj7og4', // Add 'state' parameter
                 'Login Popup',
@@ -206,31 +173,17 @@
         },
 
         processInputValue: function() {
-          // console.log('processInputValue');
-          services.notify('Signing in to Dropbox, please wait', 'notice');
+          services.notify('Signing in to Dropbox, please wait.', 'notice');
           var code = this.$('input#inputValueId').val(); // Variable set to value entered into input field
           this.switchTo('loading');
-          
           this.ajax('getBearerToken', code) // API Call to Dropbox to get the Bearer Token
             .done(function(data){
                 this.switchTo('loading');
-                services.notify('Signed in to Dropbox', 'notice');
-                this.token = data.access_token; // Set 'Bearer Token' to this
-                var bearer_token = this.token;
-                this.store('OAuth Bearer Token', bearer_token); // Store Bearer token in localStorage
-                var attachmentsArray                    = this.attachmentsArray, // Get attachmentsArray from this
-                    // firstAttachmentInAttachmentsArray   = attachmentsArray[0],
-                    // url                                 = firstAttachmentInAttachmentsArray,
-                    attachmentsArraySize                = this.attachmentsArraySize;
-
-                services.notify('Sending files to Dropbox, just a moment', 'notice');
-
-                // loop through each item in attachmentsArray and send each *.contentUrl() to this.created as 'url'
-                for (var i = 0; attachmentsArray.length > i; i++) {
-                    var url = attachmentsArray[i];
-                    console.log(url);
-                    this.created(url, bearer_token, attachmentsArraySize);
-                }
+                services.notify('Signed in to Dropbox.', 'notice');
+                // store token
+                this.store('OAuth Bearer Token', data.access_token); // Store Bearer token in localStorage
+                // Signed in and token stored
+                this.iterateFiles();
             })
             .fail(function(data){ // Failed to get Bearer token from Dropbox
                 this.switchTo('authFail');
@@ -241,56 +194,53 @@
           code = this.$('input#inputValueId').val(''); // Empties input field 
         },
 
-        created: function(url, bearer_token, attachmentsArraySize) { 
+        iterateFiles: function() {
+            var bearer_token = this.store('OAuth Bearer Token');
+            var attachmentsArray                    = this.attachmentsArray,
+                attachmentsArraySize                = this.attachmentsArraySize;
+            services.notify('Sending files to Dropbox, just a moment.', 'notice');
+            // loop through each item in attachmentsArray and send each *.contentUrl() to this.sendFile as 'url'
+            for (var i = 0; attachmentsArray.length > i; i++) {
+                var attachment = attachmentsArray[i]; //TODO select the url
+                console.dir(attachment);
+                this.sendFile(attachment, bearer_token, attachmentsArraySize);
+            }
+        },
+        sendFile: function(attachment, bearer_token, attachmentsArraySize) {
         // ( From @jstjoe - https://gist.github.com/jstjoe/fe4f2ebd9e5c3c562143 )
-        // Transform *.contentURL() into data to send with upload request to Dropbox
-            
-            // // debugging logs start
-            // console.log('url:');
-            // console.log(url);
-            // // debugging logs end
-
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', url, true);
+            xhr.open('GET', attachment.contentUrl(), true);
             xhr.responseType = 'blob';
-
             xhr.onload = function(e) {
                 if (xhr.status == 200) {
-                    var url = URL.createObjectURL( xhr.response );
-                    // console.log('[DROPBOX INTEGRATION] url:');
-                    // console.log(url);
-                    var file    = xhr.response,
+                    var blob    = xhr.response,
                         fd      = new FormData();
-                    fd.append('data', file);
-                    this.ajax('uploadFile', fd, 'test.pdf', bearer_token).done(function(response) {
-                        console.log('[DROPBOX INTEGRATION] File uploaded!');
+                    fd.append('data', blob);
+                    this.ajax('uploadFile', fd, attachment.filename(), bearer_token).done(function(response) {
+
                   });
                 }
             }.bind(this);
-            
-            xhr.onerror = function () { 
-                console.error(xhr, xhr.status); 
+            xhr.onerror = function () {
+                console.error(xhr, xhr.status);
             };
-
             xhr.send();
             this.switchTo('loading');
         },
 
         uploadFileDone: function(data) {
             this.attachmentsArraySize = this.attachmentsArraySize-1;
-            
             var attachmentsArraySize        = this.attachmentsArraySize,
                 attachmentsArraySizeAnchor  = this.attachmentsArray.length;
 
             if (attachmentsArraySize === 0) {
-                services.notify('Files sent to Dropbox successfully', 'notice');
+                services.notify('Files sent to Dropbox successfully.', 'notice');
                 this.switchTo('filesSentSuccess', {
                     PDFcount: this.attachmentsArray.length
                 });
                 console.log('[DROPBOX INTEGRATION] ~' + this.attachmentsArray.length + '~ PDF(s) uploaded!');
             }
         },
-
         uploadFileFail: function(data) {
             services.notify('Error sending files to Dropbox, please try again', 'error', 8000);
             this.switchTo('filesSentFail', {

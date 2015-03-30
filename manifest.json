@@ -1,20 +1,20 @@
 {
   "name": "Dropbox App",
   "author": {
-    "name": "Jeremiah",
-    "email": "jeremiah@zendesk.com",
-    "url": "https://github.com/jeremiahcurrier"
+    "name": "Joe McCarron",
+    "email": "joe@zendesk.com",
+    "url": "https://github.com/jstjoe"
   },
   "defaultLocale": "en",
   "private": true,
   "location": ["new_ticket_sidebar","ticket_sidebar"],
-  "version": "1.0",
+  "version": "0.9.2",
   "frameworkVersion": "1.0",
   "parameters": [
     {
       "name": "overwrite",
       "type": "checkbox",
-      "default": true
+      "default": false
     },
     {
       "name": "filePath",
